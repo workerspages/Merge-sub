@@ -1,0 +1,19 @@
+# 忽略 Git 仓库信息
+.git
+.gitignore
+
+# 忽略 Node.js 依赖目录，将在容器内安装
+node_modules
+
+# 忽略开发和文档文件
+README.md
+install.sh
+workers/
+workers_sub_beta.js
+
+# 忽略 Docker 相关文件
+.dockerignore
+docker-compose.yaml
+
+# 忽略本地开发环境文件
+.env
