@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  merge-sub:
+    # 您的镜像已经通过 Actions 构建好了，这里指向它
+    # 或者如果您想在本地构建，就使用 build: .
+    image: ghcr.io/YOUR_GITHUB_USERNAME/YOUR_IMAGE_NAME:latest
+    
+    container_name: merge-sub
+    
+    ports:
+      # [关键修改] 将主机的 3000 端口映射到容器的 80 端口
+      # 因为现在是由容器内的 Nginx 在 80 端口上提供服务
+      - "3000:80"
+      
+    volumes:
+      # 数据持久化目录保持不变
+      - ./data:/app/data
+      
+    environment:
+      # 环境变量保持不变，Node.js 应用会读取它们
+      - USERNAME=admin
+      - PASSWORD=cZ62dJPUucQjpA2w
+      # - API_URL=https://your-api.com
+      
+    restart: unless-stopped
