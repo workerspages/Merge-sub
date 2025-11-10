@@ -128,14 +128,14 @@ async function fetchData() {
         const data = await response.json();
         console.log('Fetched data:', data);
         
-        let formattedText = '<div style="margin-top: 0; padding-top: 0"><h2 style="margin: 1px 0; color: #007bff">subscriptions:</h2>';
+        let formattedText = '<div style="margin-top: 0; padding-top: 0"><h2 style="margin: 1px 0; color: #007bff">订阅链接:</h2>';
         if (Array.isArray(data.subscriptions)) {
             formattedText += data.subscriptions.map(sub => 
                 `<div style="cursor: pointer" onclick="copyToClipboard(this, '${sub.replace(/'/g, "\\'")}')">${sub}</div>`
             ).join('');
         }
         
-        formattedText += '<h2 style="margin: 1px 0; color: #007bff">nodes:</h2>';
+        formattedText += '<h2 style="margin: 1px 0; color: #007bff">节点:</h2>';
         if (typeof data.nodes === 'string') {
             const formattedNodes = data.nodes.split('\n').map(node => {
                 const formatted = node.replace(/(vmess|vless|trojan|ss|ssr|snell|juicity|hysteria|hysteria2|tuic|anytls|wireguard|socks5|https?):\/\//g, 
@@ -333,3 +333,4 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 })();
+
