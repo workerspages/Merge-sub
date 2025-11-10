@@ -1,4 +1,8 @@
-name: Build and Push Docker Image
+# ===============================================================
+# Final GitHub Actions workflow for building multi-container images
+# ===============================================================
+
+name: Build and Push App and Nginx Images
 
 on:
   push:
@@ -6,56 +10,53 @@ on:
     tags: [ "v*" ]
   workflow_dispatch: {}
 
-env:
-  IMAGE_NAME: merge-sub
-
 jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
+      
+    # [核心] 使用 Matrix Strategy
+    strategy:
+      matrix:
+        # 定义一个名为 service 的变量，它有两个可能的值：'app' 和 'nginx'
+        # 工作流将为每个值并行运行一次此作业
+        service: [app, nginx]
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - uses: docker/setup-qemu-action@v3
-      - uses: docker/setup-buildx-action@v3
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
 
-      # --- 关键修改在这里 ---
-      - name: Login to GHCR
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }} # 使用 secrets.GITHUB_TOKEN
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Login to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Extract meta
+      - name: Extract Docker metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: |
-            ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}
-            docker.io/${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}
-          tags: |
-            type=ref,event=branch
-            type=ref,event=tag
-            type=raw,value=latest,enable=${{ github.ref_name == github.event.repository.default_branch }}
+          # [修改] 动态生成镜像名称，例如：ghcr.io/username/merge-sub-app
+          images: ghcr.io/${{ github.repository_owner }}/merge-sub-${{ matrix.service }}
 
-      - name: Build and push
+      - name: Build and push Docker image
+        id: build-and-push
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: ./Dockerfile
+          # [修改] 根据 matrix 变量动态选择 Dockerfile 路径
+          file: ${{ matrix.service == 'nginx' && './nginx/Dockerfile' || './Dockerfile' }}
           push: true
-          platforms: linux/amd64,linux/arm64
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          # no-cache: true  <-- 建议移除此行以加快构建速度
