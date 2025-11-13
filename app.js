@@ -21,9 +21,8 @@ let credentials = {};
 let subscriptions = [];
 let nodes = '';
 
-function getSystemUsername() { try { return execSync('whoami').toString().trim().toLowerCase(); } catch (error) { console.error('Error getting system username:', error); return 'admin'; } }
-function generateRandomString() { const user = getSystemUsername(); const hostname = os.hostname(); const uniqueString = `${hostname}-${user}`; const hash = crypto.createHash('md5').update(uniqueString).digest('hex'); return hash.slice(0, 20); }
-const SUB_TOKEN = process.env.SUB_TOKEN || generateRandomString();
+// [修改] 使用环境变量或一个固定的默认值，不再随机生成
+const SUB_TOKEN = process.env.SUB_TOKEN || 'your_secret_token_here';
 
 async function ensureDataDir() { try { await fs.access(DATA_DIR); } catch { await fs.mkdir(DATA_DIR, { recursive: true }); } }
 async function initializeCredentialsFile() { try { await fs.access(CREDENTIALS_FILE); } catch { await fs.writeFile(CREDENTIALS_FILE, JSON.stringify({ username: USERNAME, password: PASSWORD }, null, 2)); } }
