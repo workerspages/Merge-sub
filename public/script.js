@@ -70,7 +70,7 @@ async function addItem() {
         return;
     }
 
-    const isSubscription = input.startsWith('http://') || input.startsWith('https://');
+    const isSubscription = input.includes('http://') || input.includes('https://');
     const endpoint = isSubscription ? '/admin/add-subscription' : '/admin/add-node';
     const body = isSubscription ? { subscription: input } : { node: input };
 
@@ -130,9 +130,10 @@ async function fetchData() {
         
         let formattedText = '<div style="margin-top: 0; padding-top: 0"><h2 style="margin: 1px 0; color: #007bff">订阅链接:</h2>';
         if (Array.isArray(data.subscriptions)) {
-            formattedText += data.subscriptions.map(sub => 
-                `<div style="cursor: pointer" onclick="copyToClipboard(this, '${sub.replace(/'/g, "\\'")}')">${sub}</div>`
-            ).join('');
+            formattedText += data.subscriptions.map(sub => {
+                const aliasDisplay = sub.alias ? `<strong>[${sub.alias}]</strong> ` : '';
+                return `<div style="cursor: pointer" onclick="copyToClipboard(this, '${sub.url.replace(/'/g, "\\'")}')">${aliasDisplay}${sub.url}</div>`;
+            }).join('');
         }
         
         formattedText += '<h2 style="margin: 1px 0; color: #007bff">节点:</h2>';
@@ -166,7 +167,7 @@ async function deleteItem() {
         return;
     }
     await fetchApiUrl();
-    const isSubscription = input.startsWith('http://') || input.startsWith('https://');
+    const isSubscription = input.includes('http://') || input.includes('https://');
     const endpoint = isSubscription ? '/admin/delete-subscription' : '/admin/delete-node';
     const body = isSubscription ? { subscription: input } : { node: input };
 
@@ -333,4 +334,3 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 })();
-
