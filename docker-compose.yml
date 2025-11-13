@@ -2,25 +2,31 @@ version: '3.8'
 
 services:
   merge-sub:
-    # 您的镜像已经通过 Actions 构建好了，这里指向它
-    # 或者如果您想在本地构建，就使用 build: .
-    image: ghcr.io/YOUR_GITHUB_USERNAME/YOUR_IMAGE_NAME:latest
+    # 镜像地址建议使用项目实际的地址
+    image: ghcr.io/workerspages/merge-sub:latest
     
     container_name: merge-sub
     
     ports:
-      # [关键修改] 将主机的 3000 端口映射到容器的 80 端口
+      # 将主机的 3000 端口映射到容器的 80 端口
       # 因为现在是由容器内的 Nginx 在 80 端口上提供服务
       - "3000:80"
       
     volumes:
-      # 数据持久化目录保持不变
+      # 数据持久化目录
       - ./data:/app/data
       
     environment:
-      # 环境变量保持不变，Node.js 应用会读取它们
+      # - Node.js 应用会读取这些环境变量
+      # --- 基础登录凭证 ---
       - USERNAME=admin
-      - PASSWORD=11111111
+      - PASSWORD=admin
+      
+      # --- [新增] 自定义订阅路径Token ---
+      # 此处定义的值将作为订阅链接的一部分 (例如: http://localhost:3000/a_very_secure_and_random_token_123)
+      # 为了安全，请修改为一个复杂且不易被猜到的字符串。
+      - SUB_TOKEN=a_very_secure_and_random_token_123
+      
       # - API_URL=https://your-api.com
       
     restart: unless-stopped
