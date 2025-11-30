@@ -128,22 +128,22 @@ async function fetchData() {
         const data = await response.json();
         console.log('Fetched data:', data);
         
+        // 使用 flex 布局或者去除之前的空行
         let formattedText = '<div style="margin-top: 0; padding-top: 0">';
         
         // 渲染订阅
-        formattedText += '<h2 style="margin: 1px 0; color: #0b9275">订阅链接:</h2>';
+        formattedText += '<h2 style="margin: 1px 0 10px 0; color: #0b9275">订阅链接:</h2>';
         if (Array.isArray(data.subscriptions)) {
             formattedText += data.subscriptions.map(sub => {
                 const aliasDisplay = sub.alias ? `<strong>[${sub.alias}]</strong> ` : '';
-                return `<div style="cursor: pointer; margin-bottom: 5px;" onclick="copyToClipboard(this, '${sub.url.replace(/'/g, "\\'")}')">${aliasDisplay}${sub.url}</div>`;
+                return `<div style="cursor: pointer; margin-bottom: 5px; line-height: 1.4;" onclick="copyToClipboard(this, '${sub.url.replace(/'/g, "\\'")}')">${aliasDisplay}${sub.url}</div>`;
             }).join('');
         }
         
         // 渲染节点
-        formattedText += '<h2 style="margin: 15px 0 5px 0; color: #0b9275">节点:</h2>';
+        formattedText += '<h2 style="margin: 20px 0 10px 0; color: #0b9275">节点:</h2>';
         
         let nodesList = [];
-        // 兼容处理：确保 nodesList 是数组
         if (Array.isArray(data.nodes)) {
             nodesList = data.nodes;
         } else if (typeof data.nodes === 'string') {
@@ -151,23 +151,19 @@ async function fetchData() {
         }
 
         const formattedNodes = nodesList.map(node => {
-            // 协议高亮处理
             const formattedUrl = node.url.replace(/(vmess|vless|trojan|ss|ssr|snell|juicity|hysteria|hysteria2|tuic|anytls|wireguard|socks5|https?):\/\//g, 
                 (match) => `<strong style="color: #c92d3c">${match}</strong>`);
             
-            // 如果有别名，渲染蓝色备注行
+            // 只有有备注时才显示备注 div
             let aliasHtml = '';
             if (node.alias) {
-                aliasHtml = `<div style="color: #4a90e2; font-weight: bold; font-size: 14px; margin-top: 8px;">${node.alias} :</div>`;
+                // margin-bottom: 0px 确保备注和下面的链接紧贴
+                aliasHtml = `<div style="color: #4a90e2; font-weight: bold; font-size: 14px; margin-bottom: 0px;">${node.alias} :</div>`;
             }
 
-            return `
-                <div style="margin-bottom: 2px;">
-                    ${aliasHtml}
-                    <div style="cursor: pointer; word-break: break-all;" onclick="copyToClipboard(this, '${node.url.replace(/'/g, "\\'")}')">
-                        ${formattedUrl}
-                    </div>
-                </div>`;
+            // [关键修改] 将所有 HTML 标签写在一行，避免 white-space: pre-wrap 产生额外的空行
+            // 外层 div margin-bottom: 12px 确保不同节点之间有间距
+            return `<div style="margin-bottom: 12px;">${aliasHtml}<div style="cursor: pointer; word-break: break-all; margin-top: 2px;" onclick="copyToClipboard(this, '${node.url.replace(/'/g, "\\'")}')">${formattedUrl}</div></div>`;
         }).join('');
 
         formattedText += formattedNodes;
@@ -329,7 +325,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   const themeToggle = document.getElementById('theme-toggle');
   const themeIcon = document.getElementById('theme-icon');
 
-  // 主题切换svg按钮
   const moonSVG = '<svg class="custom-moon" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 1 0 9.79 9.79z" fill="#333"/></svg>';
   const sunSVG = '<svg class="custom-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5" fill="none" stroke="#fff" stroke-width="2"/><g stroke="#fff" stroke-width="2"><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></g></svg>';
 
