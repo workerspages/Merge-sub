@@ -128,30 +128,49 @@ async function fetchData() {
         const data = await response.json();
         console.log('Fetched data:', data);
         
-        let formattedText = '<div style="margin-top: 0; padding-top: 0"><h2 style="margin: 1px 0; color: #007bff">订阅链接:</h2>';
+        let formattedText = '<div style="margin-top: 0; padding-top: 0">';
+        
+        // 渲染订阅
+        formattedText += '<h2 style="margin: 1px 0; color: #0b9275">订阅链接:</h2>';
         if (Array.isArray(data.subscriptions)) {
             formattedText += data.subscriptions.map(sub => {
                 const aliasDisplay = sub.alias ? `<strong>[${sub.alias}]</strong> ` : '';
-                return `<div style="cursor: pointer" onclick="copyToClipboard(this, '${sub.url.replace(/'/g, "\\'")}')">${aliasDisplay}${sub.url}</div>`;
+                return `<div style="cursor: pointer; margin-bottom: 5px;" onclick="copyToClipboard(this, '${sub.url.replace(/'/g, "\\'")}')">${aliasDisplay}${sub.url}</div>`;
             }).join('');
         }
         
-        formattedText += '<h2 style="margin: 1px 0; color: #007bff">节点:</h2>';
-        if (typeof data.nodes === 'string') {
-            const formattedNodes = data.nodes.split('\n').map(node => {
-                const formatted = node.replace(/(vmess|vless|trojan|ss|ssr|snell|juicity|hysteria|hysteria2|tuic|anytls|wireguard|socks5|https?):\/\//g, 
-                    (match) => `<strong style="color: #dc3545">${match}</strong>`);
-                return `<div style="cursor: pointer" onclick="copyToClipboard(this, '${node.replace(/'/g, "\\'")}')">${formatted}</div>`;
-            }).join('');
-            formattedText += formattedNodes;
-        } else if (Array.isArray(data.nodes)) {
-            const formattedNodes = data.nodes.map(node => {
-                const formatted = node.replace(/(vmess|vless|trojan|ss|ssr|snell|juicity|hysteria|hysteria2|tuic|anytls|wireguard|socks5|https?):\/\//g, 
-                    (match) => `<strong style="color: #dc3545">${match}</strong>`);
-                return `<div style="cursor: pointer" onclick="copyToClipboard(this, '${node.replace(/'/g, "\\'")}')">${formatted}</div>`;
-            }).join('');
-            formattedText += formattedNodes;
+        // 渲染节点
+        formattedText += '<h2 style="margin: 15px 0 5px 0; color: #0b9275">节点:</h2>';
+        
+        let nodesList = [];
+        // 兼容处理：确保 nodesList 是数组
+        if (Array.isArray(data.nodes)) {
+            nodesList = data.nodes;
+        } else if (typeof data.nodes === 'string') {
+            nodesList = data.nodes.split('\n').filter(n => n).map(n => ({ alias: '', url: n }));
         }
+
+        const formattedNodes = nodesList.map(node => {
+            // 协议高亮处理
+            const formattedUrl = node.url.replace(/(vmess|vless|trojan|ss|ssr|snell|juicity|hysteria|hysteria2|tuic|anytls|wireguard|socks5|https?):\/\//g, 
+                (match) => `<strong style="color: #c92d3c">${match}</strong>`);
+            
+            // 如果有别名，渲染蓝色备注行
+            let aliasHtml = '';
+            if (node.alias) {
+                aliasHtml = `<div style="color: #4a90e2; font-weight: bold; font-size: 14px; margin-top: 8px;">${node.alias} :</div>`;
+            }
+
+            return `
+                <div style="margin-bottom: 2px;">
+                    ${aliasHtml}
+                    <div style="cursor: pointer; word-break: break-all;" onclick="copyToClipboard(this, '${node.url.replace(/'/g, "\\'")}')">
+                        ${formattedUrl}
+                    </div>
+                </div>`;
+        }).join('');
+
+        formattedText += formattedNodes;
         formattedText += '</div>';
         
         document.getElementById('data').innerHTML = formattedText;
@@ -160,6 +179,7 @@ async function fetchData() {
         document.getElementById('data').textContent = 'Error loading data';
     }
 }
+
 async function deleteItem() {
     const input = document.getElementById('deleteInput').value.trim();
     if (!input) {
