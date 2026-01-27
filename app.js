@@ -265,13 +265,26 @@ function replaceAddressAndPort(content, cfip, cfport) {
                 const atIndex = mainPart.lastIndexOf('@');
                 if (atIndex > 0) {
                     // SIP002 格式: ss://base64(method:password)@host:port[/?plugin=xxx]#remark
-                    // 或 ss://method:password@host:port[/?plugin=xxx]#remark
                     const userInfo = mainPart.substring(0, atIndex);
                     const hostPortAndParams = mainPart.substring(atIndex + 1);
 
-                    // 检查是否有查询参数或路径 (/?plugin=xxx 或 /path)
+                    // 检查是否有查询参数 (包括 /? 或直接 ?)
+                    let queryParams = '';
                     const slashIndex = hostPortAndParams.indexOf('/');
-                    const queryParams = slashIndex > 0 ? hostPortAndParams.substring(slashIndex) : '';
+                    const questionIndex = hostPortAndParams.indexOf('?');
+
+                    if (slashIndex > 0) {
+                        // 有路径，如 /?.plugin=xxx
+                        queryParams = hostPortAndParams.substring(slashIndex);
+                    } else if (questionIndex > 0) {
+                        // 直接有查询参数，如 ?plugin=xxx
+                        queryParams = hostPortAndParams.substring(questionIndex);
+                    }
+
+                    // 过滤掉空的查询参数（只有 ? 或 /? 没有实际参数）
+                    if (queryParams === '?' || queryParams === '/?') {
+                        queryParams = '';
+                    }
 
                     return `ss://${userInfo}@${cfip}:${cfport}${queryParams}${remark}`;
                 } else {

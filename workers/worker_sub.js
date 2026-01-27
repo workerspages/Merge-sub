@@ -116,9 +116,21 @@ function replaceAddressAndPort(content) {
           const userInfo = mainPart.substring(0, atIndex);
           const hostPortAndParams = mainPart.substring(atIndex + 1);
 
-          // 检查是否有查询参数或路径 (/?plugin=xxx 或 /path)
+          // 检查是否有查询参数 (包括 /? 或直接 ?)
+          let queryParams = '';
           const slashIndex = hostPortAndParams.indexOf('/');
-          const queryParams = slashIndex > 0 ? hostPortAndParams.substring(slashIndex) : '';
+          const questionIndex = hostPortAndParams.indexOf('?');
+
+          if (slashIndex > 0) {
+            queryParams = hostPortAndParams.substring(slashIndex);
+          } else if (questionIndex > 0) {
+            queryParams = hostPortAndParams.substring(questionIndex);
+          }
+
+          // 过滤掉空的查询参数
+          if (queryParams === '?' || queryParams === '/?') {
+            queryParams = '';
+          }
 
           return `ss://${userInfo}@${CFIP}:${CFPORT}${queryParams}${remark}`;
         } else {
