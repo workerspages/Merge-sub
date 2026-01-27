@@ -228,7 +228,59 @@ async function fetchSubscriptionContent(url) { try { const response = await axio
 function decodeBase64Content(content) { return Buffer.from(content, 'base64').toString('utf-8'); }
 
 function addAliasToNodes(nodesContent, alias) { if (!alias) return nodesContent; const lines = nodesContent.split('\n').filter(line => line.trim() !== ''); const aliasedLines = lines.map(line => { try { if (line.startsWith('vmess://')) { const encoded = line.substring(8); const decoded = JSON.parse(Buffer.from(encoded, 'base64').toString('utf-8')); decoded.ps = `${alias} - ${decoded.ps}`; return 'vmess://' + Buffer.from(JSON.stringify(decoded)).toString('base64'); } else if (line.startsWith('vless://') || line.startsWith('trojan://') || line.startsWith('ss://')) { const parts = line.split('#'); const nodeName = parts.length > 1 ? decodeURIComponent(parts[1]) : ''; const aliasedName = `${alias} - ${nodeName}`; return `${parts[0]}#${encodeURIComponent(aliasedName)}`; } } catch (e) { console.error(`Failed to add alias to node: ${line}`, e); } return line; }); return aliasedLines.join('\n'); }
-function replaceAddressAndPort(content, cfip, cfport) { if (!cfip || !cfport) return content; return content.split('\n').map(line => { line = line.trim(); if (line.startsWith('vmess://')) { try { const decoded = JSON.parse(Buffer.from(line.substring(8), 'base64').toString()); if ((decoded.net === 'ws' || decoded.net === 'xhttp') && decoded.tls === 'tls') { if (!decoded.host || decoded.host !== decoded.add) { decoded.add = cfip; decoded.port = parseInt(cfport, 10); } } return 'vmess://' + Buffer.from(JSON.stringify(decoded)).toString('base64'); } catch (e) { return line; } } if (line.startsWith('vless://') || line.startsWith('trojan://')) { if ((line.includes('type=ws') || line.includes('type=xhttp')) && line.includes('security=tls')) { try { const url = new URL(line); if (!url.searchParams.get('host') || url.searchParams.get('host') !== url.hostname) { return line.replace(/@([\w.-]+):(\d+)/, `@${cfip}:${cfport}`); } } catch (e) { return line; } } } return line; }).join('\n'); }
+function replaceAddressAndPort(content, cfip, cfport) { 
+  if (!cfip || !cfport) return content; 
+  return content.split('\n').map(line => { 
+    line = line.trim(); 
+    if (line.startsWith('vmess://')) { 
+      try { 
+        const decoded = JSON.parse(Buffer.from(line.substring(8), 'base64').toString()); 
+        if ((decoded.net === 'ws' || decoded.net === 'xhttp') && decoded.tls === 'tls') { 
+          if (!decoded.host || decoded.host !== decoded.add) { 
+            decoded.add = cfip; 
+            decoded.port = parseInt(cfport, 10); 
+          } 
+        } 
+        return 'vmess://' + Buffer.from(JSON.stringify(decoded)).toString('base64'); 
+      } catch (e) { return line; } 
+    } 
+    if (line.startsWith('vless://') || line.startsWith('trojan://')) { 
+      if ((line.includes('type=ws') || line.includes('type=xhttp')) && line.includes('security=tls')) { 
+        try { 
+          const url = new URL(line); 
+          if (!url.searchParams.get('host') || url.searchParams.get('host') !== url.hostname) { 
+            return line.replace(/@([\w.-]+):(\d+)/, `@${cfip}:${cfport}`); 
+          } 
+        } catch (e) { return line; } 
+      } 
+    } 
+    // Shadowsocks (ss://) 协议处理
+    if (line.startsWith('ss://')) {
+      try {
+        const hashIndex = line.indexOf('#');
+        const mainPart = hashIndex > 0 ? line.substring(5, hashIndex) : line.substring(5);
+        const remark = hashIndex > 0 ? line.substring(hashIndex) : '';
+        
+        const atIndex = mainPart.lastIndexOf('@');
+        if (atIndex > 0) {
+          // SIP002 格式: ss://base64(method:password)@host:port#remark
+          const userInfo = mainPart.substring(0, atIndex);
+          return `ss://${userInfo}@${cfip}:${cfport}${remark}`;
+        } else {
+          // Legacy 格式: ss://base64(method:password@host:port)#remark
+          const decoded = Buffer.from(mainPart, 'base64').toString('utf-8');
+          const lastAtIndex = decoded.lastIndexOf('@');
+          if (lastAtIndex > 0) {
+            const methodPwd = decoded.substring(0, lastAtIndex);
+            const newDecoded = `${methodPwd}@${cfip}:${cfport}`;
+            return `ss://${Buffer.from(newDecoded).toString('base64')}${remark}`;
+          }
+        }
+      } catch (e) { return line; }
+    }
+    return line; 
+  }).join('\n'); 
+}
 
 async function generateMergedSubscription(cfip, cfport) { 
     try { 

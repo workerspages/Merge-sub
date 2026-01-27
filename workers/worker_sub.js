@@ -8,9 +8,9 @@ const SUB_PATH = '/sub';       // 访问路径
 
 // 添加多个订阅链接，以下示列节点订阅添加前请删除
 const subscriptions = [
-  'https://www.google/sub',                          
   'https://www.google/sub',
-  'https://www.google/sub',  
+  'https://www.google/sub',
+  'https://www.google/sub',
   'https://www.google/sub'  // 最后一个没有逗号
 
   // ... 添加更多订阅链接
@@ -30,35 +30,35 @@ addEventListener('fetch', event => {
   event.respondWith(handleRequest(event.request));
 });
 
-const nodeArray = nodes.trim().split('\n').filter(node => node); 
+const nodeArray = nodes.trim().split('\n').filter(node => node);
 
 async function handleRequest(request) {
   const url = new URL(request.url);
-  
+
   // 从查询参数中获取 CFIP 和 CFPORT
   const queryCFIP = url.searchParams.get('CFIP');
   const queryCFPORT = url.searchParams.get('CFPORT');
 
   if (queryCFIP && queryCFPORT) {
-      CFIP = queryCFIP;
-      CFPORT = queryCFPORT;
-      console.log(`CFIP and CFPORT updated to ${CFIP}:${CFPORT}`);
+    CFIP = queryCFIP;
+    CFPORT = queryCFPORT;
+    console.log(`CFIP and CFPORT updated to ${CFIP}:${CFPORT}`);
   }
 
   if (url.pathname === SUB_PATH) {
-      const mergedSubscription = await generateMergedSubscription();
-      const base64Content = btoa(mergedSubscription);
-      return new Response(base64Content, {
-          headers: { 'Content-Type': 'text/plain; charset=utf-8' }
-      });
+    const mergedSubscription = await generateMergedSubscription();
+    const base64Content = btoa(mergedSubscription);
+    return new Response(base64Content, {
+      headers: { 'Content-Type': 'text/plain; charset=utf-8' }
+    });
   } else if (url.pathname === '/add-subscription' && request.method === 'POST') {
-      const newSubscription = await request.json();
-      addSubscription(newSubscription.subscription);
-      return new Response('Subscription added successfully', { status: 200 });
-  } else if (url.pathname === '/add-nodes' && request.method === 'POST') {  
-      const newNodes = await request.json();
-      addMultipleNodes(newNodes.nodes); 
-      return new Response('Nodes added successfully', { status: 200 });
+    const newSubscription = await request.json();
+    addSubscription(newSubscription.subscription);
+    return new Response('Subscription added successfully', { status: 200 });
+  } else if (url.pathname === '/add-nodes' && request.method === 'POST') {
+    const newNodes = await request.json();
+    addMultipleNodes(newNodes.nodes);
+    return new Response('Nodes added successfully', { status: 200 });
   }
 
   return new Response('Hello world!', { status: 200 });
@@ -69,12 +69,12 @@ function addSubscription(subscription) {
 }
 
 function addMultipleNodes(nodes) {
-  subscriptions.push(...nodes); 
+  subscriptions.push(...nodes);
 }
 
 async function fetchSubscriptionContent(subscription) {
   if (!subscription.startsWith('http://') && !subscription.startsWith('https://')) {
-    return null; 
+    return null;
   }
   const response = await fetch(subscription);
   return response.ok ? response.text() : null;
@@ -86,37 +86,62 @@ function decodeBase64Content(base64Content) {
 
 function replaceAddressAndPort(content) {
   if (!CFIP || !CFPORT) {
-      return content;
+    return content;
   }
 
   return content.split('\n').map(line => {
-      if (line.startsWith('vmess://')) {
-          const base64Part = line.substring(8);
-          const decodedVmess = decodeBase64Content(base64Part);
-          const vmessObj = JSON.parse(decodedVmess);
-          vmessObj.add = CFIP;
-          vmessObj.port = parseInt(CFPORT, 10);
-          const updatedVmess = btoa(JSON.stringify(vmessObj));
-          return `vmess://${updatedVmess}`;
-      } else if (line.startsWith('vless://') || line.startsWith('trojan://')) {
-          return line.replace(/@([\w.-]+):(\d+)/, (match, host) => {
-              return `@${CFIP}:${CFPORT}`;
-          });
+    if (line.startsWith('vmess://')) {
+      const base64Part = line.substring(8);
+      const decodedVmess = decodeBase64Content(base64Part);
+      const vmessObj = JSON.parse(decodedVmess);
+      vmessObj.add = CFIP;
+      vmessObj.port = parseInt(CFPORT, 10);
+      const updatedVmess = btoa(JSON.stringify(vmessObj));
+      return `vmess://${updatedVmess}`;
+    } else if (line.startsWith('vless://') || line.startsWith('trojan://')) {
+      return line.replace(/@([\w.-]+):(\d+)/, (match, host) => {
+        return `@${CFIP}:${CFPORT}`;
+      });
+    } else if (line.startsWith('ss://')) {
+      // Shadowsocks (ss://) 协议处理
+      try {
+        const hashIndex = line.indexOf('#');
+        const mainPart = hashIndex > 0 ? line.substring(5, hashIndex) : line.substring(5);
+        const remark = hashIndex > 0 ? line.substring(hashIndex) : '';
+
+        const atIndex = mainPart.lastIndexOf('@');
+        if (atIndex > 0) {
+          // SIP002 格式: ss://base64(method:password)@host:port#remark
+          const userInfo = mainPart.substring(0, atIndex);
+          return `ss://${userInfo}@${CFIP}:${CFPORT}${remark}`;
+        } else {
+          // Legacy 格式: ss://base64(method:password@host:port)#remark
+          const decoded = atob(mainPart);
+          const lastAtIndex = decoded.lastIndexOf('@');
+          if (lastAtIndex > 0) {
+            const methodPwd = decoded.substring(0, lastAtIndex);
+            const newDecoded = `${methodPwd}@${CFIP}:${CFPORT}`;
+            return `ss://${btoa(newDecoded)}${remark}`;
+          }
+        }
+      } catch (e) {
+        return line;
       }
-      return line;
+    }
+    return line;
   }).join('\n');
 }
 
 async function generateMergedSubscription() {
-  const nodesContent = nodeArray.join('\n'); 
+  const nodesContent = nodeArray.join('\n');
   const promises = subscriptions.map(async (subscription) => {
-      const subscriptionContent = await fetchSubscriptionContent(subscription);
-      if (subscriptionContent) {
-          const decodedContent = decodeBase64Content(subscriptionContent);
-          const updatedContent = replaceAddressAndPort(decodedContent);
-          return updatedContent;
-      }
-      return null;
+    const subscriptionContent = await fetchSubscriptionContent(subscription);
+    if (subscriptionContent) {
+      const decodedContent = decodeBase64Content(subscriptionContent);
+      const updatedContent = replaceAddressAndPort(decodedContent);
+      return updatedContent;
+    }
+    return null;
   });
 
   const mergedContentArray = await Promise.all(promises);
