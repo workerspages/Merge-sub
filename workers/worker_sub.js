@@ -105,23 +105,34 @@ function replaceAddressAndPort(content) {
     } else if (line.startsWith('ss://')) {
       // Shadowsocks (ss://) 协议处理
       try {
+        // 解析 # 后的备注
         const hashIndex = line.indexOf('#');
         const mainPart = hashIndex > 0 ? line.substring(5, hashIndex) : line.substring(5);
         const remark = hashIndex > 0 ? line.substring(hashIndex) : '';
 
         const atIndex = mainPart.lastIndexOf('@');
         if (atIndex > 0) {
-          // SIP002 格式: ss://base64(method:password)@host:port#remark
+          // SIP002 格式: ss://base64(method:password)@host:port[/?plugin=xxx]#remark
           const userInfo = mainPart.substring(0, atIndex);
-          return `ss://${userInfo}@${CFIP}:${CFPORT}${remark}`;
+          const hostPortAndParams = mainPart.substring(atIndex + 1);
+
+          // 检查是否有查询参数或路径 (/?plugin=xxx 或 /path)
+          const slashIndex = hostPortAndParams.indexOf('/');
+          const queryParams = slashIndex > 0 ? hostPortAndParams.substring(slashIndex) : '';
+
+          return `ss://${userInfo}@${CFIP}:${CFPORT}${queryParams}${remark}`;
         } else {
           // Legacy 格式: ss://base64(method:password@host:port)#remark
-          const decoded = atob(mainPart);
-          const lastAtIndex = decoded.lastIndexOf('@');
-          if (lastAtIndex > 0) {
-            const methodPwd = decoded.substring(0, lastAtIndex);
-            const newDecoded = `${methodPwd}@${CFIP}:${CFPORT}`;
-            return `ss://${btoa(newDecoded)}${remark}`;
+          try {
+            const decoded = atob(mainPart);
+            const lastAtIndex = decoded.lastIndexOf('@');
+            if (lastAtIndex > 0) {
+              const methodPwd = decoded.substring(0, lastAtIndex);
+              const newDecoded = `${methodPwd}@${CFIP}:${CFPORT}`;
+              return `ss://${btoa(newDecoded)}${remark}`;
+            }
+          } catch (decodeErr) {
+            return line;
           }
         }
       } catch (e) {

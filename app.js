@@ -28,12 +28,12 @@ async function ensureDataDir() { try { await fs.access(DATA_DIR); } catch { awai
 async function initializeCredentialsFile() { try { await fs.access(CREDENTIALS_FILE); } catch { await fs.writeFile(CREDENTIALS_FILE, JSON.stringify({ username: USERNAME, password: PASSWORD }, null, 2)); } }
 
 // 初始化数据文件，确保结构正确
-async function initializeDataFile() { 
-    try { 
-        const data = await fs.readFile(DATA_FILE, 'utf8'); 
-        const parsed = JSON.parse(data); 
-        subscriptions = parsed.subscriptions || []; 
-        
+async function initializeDataFile() {
+    try {
+        const data = await fs.readFile(DATA_FILE, 'utf8');
+        const parsed = JSON.parse(data);
+        subscriptions = parsed.subscriptions || [];
+
         // 兼容性处理：如果读取到的是字符串或字符串数组，转换为对象结构
         if (Array.isArray(parsed.nodes)) {
             nodes = parsed.nodes.map(n => typeof n === 'string' ? { alias: '', url: n } : n);
@@ -42,31 +42,31 @@ async function initializeDataFile() {
         } else {
             nodes = [];
         }
-    } catch { 
-        await fs.writeFile(DATA_FILE, JSON.stringify({ subscriptions: [], nodes: [] }, null, 2)); 
-        subscriptions = []; 
-        nodes = []; 
-    } 
+    } catch {
+        await fs.writeFile(DATA_FILE, JSON.stringify({ subscriptions: [], nodes: [] }, null, 2));
+        subscriptions = [];
+        nodes = [];
+    }
 }
 
 async function loadCredentials() { try { await initializeCredentialsFile(); const data = await fs.readFile(CREDENTIALS_FILE, 'utf8'); return JSON.parse(data); } catch { return { username: USERNAME, password: PASSWORD }; } }
 async function saveCredentials(creds) { try { await fs.writeFile(CREDENTIALS_FILE, JSON.stringify(creds, null, 2)); return true; } catch { return false; } }
 
 // 加载数据：处理旧格式兼容
-async function loadData() { 
-    try { 
-        const data = await fs.readFile(DATA_FILE, 'utf8'); 
-        const parsed = JSON.parse(data); 
-        
-        if (Array.isArray(parsed.subscriptions)) { 
-            subscriptions = parsed.subscriptions.map(sub => { 
-                if (typeof sub === 'string') { return { url: sub, alias: '' }; } 
-                return sub; 
-            }); 
-        } else { 
-            subscriptions = []; 
-        } 
-        
+async function loadData() {
+    try {
+        const data = await fs.readFile(DATA_FILE, 'utf8');
+        const parsed = JSON.parse(data);
+
+        if (Array.isArray(parsed.subscriptions)) {
+            subscriptions = parsed.subscriptions.map(sub => {
+                if (typeof sub === 'string') { return { url: sub, alias: '' }; }
+                return sub;
+            });
+        } else {
+            subscriptions = [];
+        }
+
         // 核心修改：确保 nodes 总是对象数组
         if (Array.isArray(parsed.nodes)) {
             nodes = parsed.nodes.map(n => typeof n === 'string' ? { alias: '', url: n } : n);
@@ -75,25 +75,25 @@ async function loadData() {
         } else {
             nodes = [];
         }
-    } catch { 
-        subscriptions = []; 
-        nodes = []; 
-    } 
+    } catch {
+        subscriptions = [];
+        nodes = [];
+    }
 }
 
 // 保存数据：保存完整的对象结构
-async function saveData(subs, nds) { 
-    try { 
-        const data = { 
-            subscriptions: Array.isArray(subs) ? subs : [], 
-            nodes: Array.isArray(nds) ? nds : [] 
-        }; 
-        await fs.writeFile(DATA_FILE, JSON.stringify(data, null, 2)); 
-        subscriptions = data.subscriptions; 
-        nodes = data.nodes; 
-    } catch (error) { 
-        throw error; 
-    } 
+async function saveData(subs, nds) {
+    try {
+        const data = {
+            subscriptions: Array.isArray(subs) ? subs : [],
+            nodes: Array.isArray(nds) ? nds : []
+        };
+        await fs.writeFile(DATA_FILE, JSON.stringify(data, null, 2));
+        subscriptions = data.subscriptions;
+        nodes = data.nodes;
+    } catch (error) {
+        throw error;
+    }
 }
 
 app.use(session({ secret: crypto.randomBytes(64).toString('hex'), resave: false, saveUninitialized: false, cookie: { secure: false, httpOnly: true, maxAge: 24 * 60 * 60 * 1000 } }));
@@ -114,66 +114,66 @@ app.post('/admin/update-credentials', checkAuth, async (req, res) => { try { con
 app.post('/admin/add-subscription', checkAuth, async (req, res) => { try { const newSubscriptionInput = req.body.subscription?.trim(); if (!newSubscriptionInput) return res.status(400).json({ error: 'Subscription data is required' }); if (!Array.isArray(subscriptions)) subscriptions = []; const lines = newSubscriptionInput.split('\n').map(line => line.trim()).filter(line => line); const addedSubs = [], existingSubs = []; for (const line of lines) { let alias = '', url = ''; const parts = line.split('|'); if (parts.length > 1) { alias = parts[0].trim(); url = parts.slice(1).join('|').trim(); } else { url = line.trim(); alias = ''; } if (!url.startsWith('http://') && !url.startsWith('https://')) continue; if (subscriptions.some(existingSub => existingSub.url.trim() === url)) { existingSubs.push(url); } else { addedSubs.push(url); subscriptions.push({ alias, url }); } } if (addedSubs.length > 0) { await saveData(subscriptions, nodes); const message = addedSubs.length === lines.length ? '订阅添加成功' : `成功添加 ${addedSubs.length} 个订阅，${existingSubs.length} 个订阅已存在`; res.status(200).json({ message }); } else { res.status(400).json({ error: '所有订阅已存在或输入格式不正确' }); } } catch (error) { res.status(500).json({ error: 'Failed to add subscription' }); } });
 
 // --- 核心修改：添加节点路由支持备注 ---
-app.post('/admin/add-node', checkAuth, async (req, res) => { 
-    try { 
-        const newNodeInput = req.body.node?.trim(); 
-        if (!newNodeInput) return res.status(400).json({ error: 'Node is required' }); 
-        
-        if (!Array.isArray(nodes)) nodes = []; 
-        
-        const lines = newNodeInput.split('\n').map(line => line.trim()).filter(line => line); 
-        const addedNodes = [], existingNodes = []; 
-        
-        for (const line of lines) { 
-            let alias = ''; 
-            let url = ''; 
-            
+app.post('/admin/add-node', checkAuth, async (req, res) => {
+    try {
+        const newNodeInput = req.body.node?.trim();
+        if (!newNodeInput) return res.status(400).json({ error: 'Node is required' });
+
+        if (!Array.isArray(nodes)) nodes = [];
+
+        const lines = newNodeInput.split('\n').map(line => line.trim()).filter(line => line);
+        const addedNodes = [], existingNodes = [];
+
+        for (const line of lines) {
+            let alias = '';
+            let url = '';
+
             // 解析 "备注 | 链接"
-            const parts = line.split('|'); 
-            if (parts.length > 1) { 
-                alias = parts[0].trim(); 
-                url = parts.slice(1).join('|').trim(); 
-            } else { 
-                url = line.trim(); 
-            } 
-            
-            url = tryDecodeBase64(url); 
-            
+            const parts = line.split('|');
+            if (parts.length > 1) {
+                alias = parts[0].trim();
+                url = parts.slice(1).join('|').trim();
+            } else {
+                url = line.trim();
+            }
+
+            url = tryDecodeBase64(url);
+
             // 查重：只对比URL
-            if (nodes.some(existingNode => existingNode.url === url)) { 
-                existingNodes.push(url); 
-            } else { 
+            if (nodes.some(existingNode => existingNode.url === url)) {
+                existingNodes.push(url);
+            } else {
                 // 保存别名和链接，不修改链接内容
-                nodes.push({ alias, url }); 
-                addedNodes.push(url); 
-            } 
-        } 
-        
-        if (addedNodes.length > 0) { 
-            await saveData(subscriptions, nodes); 
-            const message = addedNodes.length === lines.length ? '节点添加成功' : `成功添加 ${addedNodes.length} 个节点，${existingNodes.length} 个节点已存在`; 
-            res.status(200).json({ message }); 
-        } else { 
-            res.status(400).json({ error: '所有节点已存在' }); 
-        } 
-    } catch (error) { 
-        res.status(500).json({ error: 'Failed to add node' }); 
-    } 
+                nodes.push({ alias, url });
+                addedNodes.push(url);
+            }
+        }
+
+        if (addedNodes.length > 0) {
+            await saveData(subscriptions, nodes);
+            const message = addedNodes.length === lines.length ? '节点添加成功' : `成功添加 ${addedNodes.length} 个节点，${existingNodes.length} 个节点已存在`;
+            res.status(200).json({ message });
+        } else {
+            res.status(400).json({ error: '所有节点已存在' });
+        }
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to add node' });
+    }
 });
 
 // --- 核心修改：删除节点路由 ---
 app.post('/admin/delete-subscription', checkAuth, async (req, res) => { try { const subsToDelete = req.body.subscription?.trim(); if (!subsToDelete) return res.status(400).json({ error: 'Subscription URL is required' }); if (!Array.isArray(subscriptions)) { subscriptions = []; return res.status(404).json({ error: 'No subscriptions found' }); } const deleteList = subsToDelete.split('\n').map(sub => sub.trim()).filter(sub => sub); const deletedSubs = [], notFoundSubs = []; deleteList.forEach(subToDelete => { const index = subscriptions.findIndex(sub => sub.url.trim() === subToDelete.trim()); if (index !== -1) { deletedSubs.push(subToDelete); subscriptions.splice(index, 1); } else { notFoundSubs.push(subToDelete); } }); if (deletedSubs.length > 0) { await saveData(subscriptions, nodes); const message = deletedSubs.length === deleteList.length ? '订阅删除成功' : `成功删除 ${deletedSubs.length} 个订阅，${notFoundSubs.length} 个订阅不存在`; res.status(200).json({ message }); } else { res.status(404).json({ error: '未找到要删除的订阅' }); } } catch (error) { res.status(500).json({ error: 'Failed to delete subscription' }); } });
 
-app.post('/admin/delete-node', checkAuth, async (req, res) => { 
-    try { 
-        const nodesToDelete = req.body.node?.trim(); 
-        if (!nodesToDelete) return res.status(400).json({ error: 'Node is required' }); 
-        
-        const deleteList = nodesToDelete.split('\n').map(node => cleanNodeString(node)).filter(node => node); 
-        
+app.post('/admin/delete-node', checkAuth, async (req, res) => {
+    try {
+        const nodesToDelete = req.body.node?.trim();
+        if (!nodesToDelete) return res.status(400).json({ error: 'Node is required' });
+
+        const deleteList = nodesToDelete.split('\n').map(node => cleanNodeString(node)).filter(node => node);
+
         // 记录初始长度
         const initialLength = nodes.length;
-        
+
         // 过滤掉匹配URL的节点
         nodes = nodes.filter(n => {
             const cleanUrl = cleanNodeString(n.url);
@@ -182,44 +182,44 @@ app.post('/admin/delete-node', checkAuth, async (req, res) => {
 
         const deletedCount = initialLength - nodes.length;
 
-        if (deletedCount > 0) { 
-            await saveData(subscriptions, nodes); 
-            res.status(200).json({ message: `成功删除 ${deletedCount} 个节点` }); 
-        } else { 
-            res.status(404).json({ error: '未找到要删除的节点' }); 
-        } 
-    } catch (error) { 
-        res.status(500).json({ error: 'Failed to delete node' }); 
-    } 
+        if (deletedCount > 0) {
+            await saveData(subscriptions, nodes);
+            res.status(200).json({ message: `成功删除 ${deletedCount} 个节点` });
+        } else {
+            res.status(404).json({ error: '未找到要删除的节点' });
+        }
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to delete node' });
+    }
 });
 
 // --- 核心修改：返回完整对象供前端渲染 ---
-app.get('/admin/data', checkAuth, async (req, res) => { 
-    try { 
+app.get('/admin/data', checkAuth, async (req, res) => {
+    try {
         // 直接返回对象数组
-        res.status(200).json({ subscriptions: Array.isArray(subscriptions) ? subscriptions : [], nodes: nodes }); 
-    } catch (error) { 
-        res.status(500).json({ error: 'Failed to fetch data' }); 
-    } 
+        res.status(200).json({ subscriptions: Array.isArray(subscriptions) ? subscriptions : [], nodes: nodes });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch data' });
+    }
 });
 
 app.use(express.static(path.join(__dirname, 'public')));
 
 // --- 核心修改：生成订阅时只输出 URL ---
-app.get(`/${SUB_TOKEN}`, async (req, res) => { 
-    try { 
-        const { CFIP: queryCFIP, CFPORT: queryCFPORT } = req.query; 
-        if (queryCFIP && queryCFPORT) console.log(`Using custom IP and PORT for this request: ${queryCFIP}:${queryCFPORT}`); 
-        
-        await loadData(); 
-        const mergedSubscription = await generateMergedSubscription(queryCFIP, queryCFPORT); 
-        
-        res.setHeader('Content-Type', 'text/plain; charset=utf-8'); 
-        res.send(Buffer.from(mergedSubscription).toString('base64')); 
-    } catch (error) { 
-        console.error(`Error handling /${SUB_TOKEN} route: ${error}`); 
-        res.status(500).send('Internal Server Error'); 
-    } 
+app.get(`/${SUB_TOKEN}`, async (req, res) => {
+    try {
+        const { CFIP: queryCFIP, CFPORT: queryCFPORT } = req.query;
+        if (queryCFIP && queryCFPORT) console.log(`Using custom IP and PORT for this request: ${queryCFIP}:${queryCFPORT}`);
+
+        await loadData();
+        const mergedSubscription = await generateMergedSubscription(queryCFIP, queryCFPORT);
+
+        res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+        res.send(Buffer.from(mergedSubscription).toString('base64'));
+    } catch (error) {
+        console.error(`Error handling /${SUB_TOKEN} route: ${error}`);
+        res.status(500).send('Internal Server Error');
+    }
 });
 
 function cleanNodeString(str) { return str.replace(/^["'`]+|["'`]+$/g, '').replace(/,+$/g, '').replace(/\s+/g, '').trim(); }
@@ -228,83 +228,99 @@ async function fetchSubscriptionContent(url) { try { const response = await axio
 function decodeBase64Content(content) { return Buffer.from(content, 'base64').toString('utf-8'); }
 
 function addAliasToNodes(nodesContent, alias) { if (!alias) return nodesContent; const lines = nodesContent.split('\n').filter(line => line.trim() !== ''); const aliasedLines = lines.map(line => { try { if (line.startsWith('vmess://')) { const encoded = line.substring(8); const decoded = JSON.parse(Buffer.from(encoded, 'base64').toString('utf-8')); decoded.ps = `${alias} - ${decoded.ps}`; return 'vmess://' + Buffer.from(JSON.stringify(decoded)).toString('base64'); } else if (line.startsWith('vless://') || line.startsWith('trojan://') || line.startsWith('ss://')) { const parts = line.split('#'); const nodeName = parts.length > 1 ? decodeURIComponent(parts[1]) : ''; const aliasedName = `${alias} - ${nodeName}`; return `${parts[0]}#${encodeURIComponent(aliasedName)}`; } } catch (e) { console.error(`Failed to add alias to node: ${line}`, e); } return line; }); return aliasedLines.join('\n'); }
-function replaceAddressAndPort(content, cfip, cfport) { 
-  if (!cfip || !cfport) return content; 
-  return content.split('\n').map(line => { 
-    line = line.trim(); 
-    if (line.startsWith('vmess://')) { 
-      try { 
-        const decoded = JSON.parse(Buffer.from(line.substring(8), 'base64').toString()); 
-        if ((decoded.net === 'ws' || decoded.net === 'xhttp') && decoded.tls === 'tls') { 
-          if (!decoded.host || decoded.host !== decoded.add) { 
-            decoded.add = cfip; 
-            decoded.port = parseInt(cfport, 10); 
-          } 
-        } 
-        return 'vmess://' + Buffer.from(JSON.stringify(decoded)).toString('base64'); 
-      } catch (e) { return line; } 
-    } 
-    if (line.startsWith('vless://') || line.startsWith('trojan://')) { 
-      if ((line.includes('type=ws') || line.includes('type=xhttp')) && line.includes('security=tls')) { 
-        try { 
-          const url = new URL(line); 
-          if (!url.searchParams.get('host') || url.searchParams.get('host') !== url.hostname) { 
-            return line.replace(/@([\w.-]+):(\d+)/, `@${cfip}:${cfport}`); 
-          } 
-        } catch (e) { return line; } 
-      } 
-    } 
-    // Shadowsocks (ss://) 协议处理
-    if (line.startsWith('ss://')) {
-      try {
-        const hashIndex = line.indexOf('#');
-        const mainPart = hashIndex > 0 ? line.substring(5, hashIndex) : line.substring(5);
-        const remark = hashIndex > 0 ? line.substring(hashIndex) : '';
-        
-        const atIndex = mainPart.lastIndexOf('@');
-        if (atIndex > 0) {
-          // SIP002 格式: ss://base64(method:password)@host:port#remark
-          const userInfo = mainPart.substring(0, atIndex);
-          return `ss://${userInfo}@${cfip}:${cfport}${remark}`;
-        } else {
-          // Legacy 格式: ss://base64(method:password@host:port)#remark
-          const decoded = Buffer.from(mainPart, 'base64').toString('utf-8');
-          const lastAtIndex = decoded.lastIndexOf('@');
-          if (lastAtIndex > 0) {
-            const methodPwd = decoded.substring(0, lastAtIndex);
-            const newDecoded = `${methodPwd}@${cfip}:${cfport}`;
-            return `ss://${Buffer.from(newDecoded).toString('base64')}${remark}`;
-          }
+function replaceAddressAndPort(content, cfip, cfport) {
+    if (!cfip || !cfport) return content;
+    return content.split('\n').map(line => {
+        line = line.trim();
+        if (line.startsWith('vmess://')) {
+            try {
+                const decoded = JSON.parse(Buffer.from(line.substring(8), 'base64').toString());
+                if ((decoded.net === 'ws' || decoded.net === 'xhttp') && decoded.tls === 'tls') {
+                    if (!decoded.host || decoded.host !== decoded.add) {
+                        decoded.add = cfip;
+                        decoded.port = parseInt(cfport, 10);
+                    }
+                }
+                return 'vmess://' + Buffer.from(JSON.stringify(decoded)).toString('base64');
+            } catch (e) { return line; }
         }
-      } catch (e) { return line; }
-    }
-    return line; 
-  }).join('\n'); 
+        if (line.startsWith('vless://') || line.startsWith('trojan://')) {
+            if ((line.includes('type=ws') || line.includes('type=xhttp')) && line.includes('security=tls')) {
+                try {
+                    const url = new URL(line);
+                    if (!url.searchParams.get('host') || url.searchParams.get('host') !== url.hostname) {
+                        return line.replace(/@([\w.-]+):(\d+)/, `@${cfip}:${cfport}`);
+                    }
+                } catch (e) { return line; }
+            }
+        }
+        // Shadowsocks (ss://) 协议处理
+        if (line.startsWith('ss://')) {
+            try {
+                // 解析 # 后的备注
+                const hashIndex = line.indexOf('#');
+                const mainPart = hashIndex > 0 ? line.substring(5, hashIndex) : line.substring(5);
+                const remark = hashIndex > 0 ? line.substring(hashIndex) : '';
+
+                const atIndex = mainPart.lastIndexOf('@');
+                if (atIndex > 0) {
+                    // SIP002 格式: ss://base64(method:password)@host:port[/?plugin=xxx]#remark
+                    // 或 ss://method:password@host:port[/?plugin=xxx]#remark
+                    const userInfo = mainPart.substring(0, atIndex);
+                    const hostPortAndParams = mainPart.substring(atIndex + 1);
+
+                    // 检查是否有查询参数或路径 (/?plugin=xxx 或 /path)
+                    const slashIndex = hostPortAndParams.indexOf('/');
+                    const queryParams = slashIndex > 0 ? hostPortAndParams.substring(slashIndex) : '';
+
+                    return `ss://${userInfo}@${cfip}:${cfport}${queryParams}${remark}`;
+                } else {
+                    // Legacy 格式: ss://base64(method:password@host:port)#remark
+                    try {
+                        const decoded = Buffer.from(mainPart, 'base64').toString('utf-8');
+                        const lastAtIndex = decoded.lastIndexOf('@');
+                        if (lastAtIndex > 0) {
+                            const methodPwd = decoded.substring(0, lastAtIndex);
+                            const newDecoded = `${methodPwd}@${cfip}:${cfport}`;
+                            return `ss://${Buffer.from(newDecoded).toString('base64')}${remark}`;
+                        }
+                    } catch (decodeErr) {
+                        // base64 解码失败，保持原样
+                        return line;
+                    }
+                }
+            } catch (e) {
+                // 解析失败，保持原节点不变
+                return line;
+            }
+        }
+        return line;
+    }).join('\n');
 }
 
-async function generateMergedSubscription(cfip, cfport) { 
-    try { 
-        const promises = subscriptions.map(async (subscription) => { 
-            const content = await fetchSubscriptionContent(subscription.url); 
-            if (content) { 
-                const decoded = decodeBase64Content(content); 
-                const aliased = addAliasToNodes(decoded, subscription.alias); 
-                return replaceAddressAndPort(aliased, cfip, cfport); 
-            } 
-            return null; 
-        }); 
-        const resolvedContents = await Promise.all(promises); 
-        const mergedContent = resolvedContents.filter(c => c !== null).join('\n'); 
-        
+async function generateMergedSubscription(cfip, cfport) {
+    try {
+        const promises = subscriptions.map(async (subscription) => {
+            const content = await fetchSubscriptionContent(subscription.url);
+            if (content) {
+                const decoded = decodeBase64Content(content);
+                const aliased = addAliasToNodes(decoded, subscription.alias);
+                return replaceAddressAndPort(aliased, cfip, cfport);
+            }
+            return null;
+        });
+        const resolvedContents = await Promise.all(promises);
+        const mergedContent = resolvedContents.filter(c => c !== null).join('\n');
+
         // 核心修改：提取 nodes 数组中的 url 属性进行拼接
         const nodesUrlString = nodes.map(n => n.url).join('\n');
-        const updatedNodes = replaceAddressAndPort(nodesUrlString, cfip, cfport); 
-        
-        return `${mergedContent}\n${updatedNodes}`; 
-    } catch (error) { 
-        console.error(`Error generating merged subscription: ${error}`); 
-        throw error; 
-    } 
+        const updatedNodes = replaceAddressAndPort(nodesUrlString, cfip, cfport);
+
+        return `${mergedContent}\n${updatedNodes}`;
+    } catch (error) {
+        console.error(`Error generating merged subscription: ${error}`);
+        throw error;
+    }
 }
 
 async function startServer() { try { await ensureDataDir(); await initializeCredentialsFile(); credentials = await loadCredentials(); console.log('Credentials loaded into memory at startup.'); await initializeDataFile(); app.listen(PORT, () => { console.log(`Node.js server is running and listening on port ${PORT}`); }); } catch (error) { console.error('Error starting server:', error); process.exit(1); } }
