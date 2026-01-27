@@ -121,10 +121,13 @@ function replaceAddressAndPort(content) {
           const slashIndex = hostPortAndParams.indexOf('/');
           const questionIndex = hostPortAndParams.indexOf('?');
 
-          if (slashIndex > 0) {
-            queryParams = hostPortAndParams.substring(slashIndex);
-          } else if (questionIndex > 0) {
-            queryParams = hostPortAndParams.substring(questionIndex);
+          const indices = [];
+          if (slashIndex > 0) indices.push(slashIndex);
+          if (questionIndex > 0) indices.push(questionIndex);
+
+          if (indices.length > 0) {
+            const startIndex = Math.min(...indices);
+            queryParams = hostPortAndParams.substring(startIndex);
           }
 
           // 过滤掉空的查询参数
